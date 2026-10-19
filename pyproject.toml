@@ -1,6 +1,6 @@
 [project]
 name = "pyd2"
-version = "0.7.1"
+version = "0.9.0"
 description = "D2 for Python: the official D2 diagram binary (d2lang.com) as wheels for pip and uv, with a Python API to render SVG"
 readme = "README.md"
 authors = [{ name = "lcmonteiro", email = "monteiro.lcm@gmail.com" }]

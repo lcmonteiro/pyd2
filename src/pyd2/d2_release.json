@@ -1,13 +1,13 @@
 {
   "comment": "Official D2 release bundled into the pyd2 wheels. Hashes are of the release archives on GitHub (D2 publishes no checksum file). Updated by scripts/update_d2.py.",
-  "version": "v0.7.1",
+  "version": "v0.9.0",
   "url": "https://github.com/terrastruct/d2/releases/download/{version}/d2-{version}-{platform}.tar.gz",
   "sha256": {
-    "linux-amd64": "eb172adf59f38d1e5a70ab177591356754ffaf9bebb84e0ca8b767dfb421dad7",
-    "linux-arm64": "ce3a0b985a8f91335a826c254b3a88736fd81afcdd08b58f6c749d2add6864b0",
-    "macos-amd64": "b0178e8fdae72194d5a23aa6effd323378cc58ccd3b08d175ab80371c14e106f",
-    "macos-arm64": "80de85f3b0ac7d9569acac0780ed65dd994ea78969b6b230c58bbb2c6113465b",
-    "windows-amd64": "d289c2866221c618c9fc6efcd416ee8c16e122bd0100761aea51001e3c958f57",
-    "windows-arm64": "c7ebdc7b2f6df513b715d431762105386f7c702b0b2dddff2a500a032b1bba67"
+    "linux-amd64": "5669ddc46b99e942cc96078f4a4e36d5e62103348f4c05179ede27802fdd87a9",
+    "linux-arm64": "ac2c028697199479acb321db1e3d68caee9f2ba492ed73caa3cd13f3829bf913",
+    "macos-amd64": "cad39576a480d6bb02ea142fef1726647914b0d2da51ccc9b30b660a2b1babf0",
+    "macos-arm64": "eaf6c0c143e56dd9fa97bfb6df25ea9c1ebce40245f056a0768cf1a6c15d3064",
+    "windows-amd64": "5f63b643de8f5a6dfb922d172e1b5496e4caf47497c33c4427cf1127f28c340f",
+    "windows-arm64": "dd05cab459410c287d7ca3eb9cf78145a071742ee8e1b81a0122f84f471883e1"
   }
 }
