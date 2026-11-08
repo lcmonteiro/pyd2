@@ -70,6 +70,52 @@ def test_tampered_download_is_refused(release, monkeypatch):
         hook.fetch_archive(release[0], "linux-amd64")
 
 
+def flaky_urlopen(failures, archive):
+    """An urlopen that raises each of ``failures`` in turn, then serves ``archive``; records each call."""
+    calls = []
+
+    def urlopen(url, timeout):
+        calls.append(url)
+        if len(calls) <= len(failures):
+            raise failures[len(calls) - 1]
+        return Response(archive)
+
+    return urlopen, calls
+
+
+def http_error(code):
+    return hook.urllib.error.HTTPError("https://example.invalid", code, "error", {}, None)
+
+
+def test_transient_failures_are_retried(release, monkeypatch):
+    data, archive = release
+    delays = []
+    urlopen, calls = flaky_urlopen([TimeoutError("timed out"), http_error(502), http_error(429)], archive)
+    monkeypatch.setattr(hook.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(hook.time, "sleep", delays.append)
+    assert hook.fetch_archive(data, "linux-amd64") == archive
+    assert len(calls) == 4
+    assert delays == list(hook.RETRY_DELAYS)
+
+
+def test_download_gives_up_after_the_last_retry(release, monkeypatch):
+    urlopen, calls = flaky_urlopen([http_error(503)] * 10, b"")
+    monkeypatch.setattr(hook.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(hook.time, "sleep", lambda delay: None)
+    with pytest.raises(RuntimeError, match="could not download D2 from .*: HTTP Error 503"):
+        hook.fetch_archive(release[0], "linux-amd64")
+    assert len(calls) == len(hook.RETRY_DELAYS) + 1
+
+
+def test_client_errors_are_not_retried(release, monkeypatch):
+    urlopen, calls = flaky_urlopen([http_error(404)], release[1])
+    monkeypatch.setattr(hook.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(hook.time, "sleep", lambda delay: pytest.fail("retried a 404"))
+    with pytest.raises(RuntimeError, match="HTTP Error 404"):
+        hook.fetch_archive(release[0], "linux-amd64")
+    assert len(calls) == 1
+
+
 def test_unknown_platform(release):
     with pytest.raises(RuntimeError, match="no pinned D2 build for platform 'solaris-sparc'"):
         hook.fetch_archive(release[0], "solaris-sparc")
