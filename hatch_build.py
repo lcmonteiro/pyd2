@@ -1,6 +1,7 @@
 """Hatch build hook: put the official D2 binary (and its license) into the pyd2 wheel.
 
-Every wheel build downloads the pinned D2 release for the target platform,
+Every wheel build downloads the pinned D2 release for the target platform
+(retrying a timeout, a dropped connection, a 5xx or a 429),
 checks its SHA-256 against ``src/pyd2/d2_release.json``, and ships
 ``pyd2/bin/d2`` (``d2.exe`` on Windows) plus ``pyd2/bin/D2-LICENSE.txt``.
 The wheel is tagged for that platform; there is nothing to compile.
@@ -19,9 +20,12 @@ import json
 import os
 import platform
 import shutil
+import sys
 import sysconfig
 import tarfile
 import tempfile
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -31,6 +35,9 @@ ROOT = Path(__file__).parent
 RELEASE_FILE = ROOT / "src" / "pyd2" / "d2_release.json"
 EDITABLE_BIN = ROOT / "src" / "pyd2" / "bin"
 LICENSE_NAME = "D2-LICENSE.txt"
+
+# Seconds to wait before each retry of a failed download (a timeout, a dropped connection, a 5xx or a 429).
+RETRY_DELAYS = (2, 4, 8)
 
 # Wheel platform tags for cross-builds. D2 is a static Go binary, so the oldest common baselines work.
 WHEEL_TAGS = {
@@ -74,11 +81,7 @@ def fetch_archive(release: dict, target: str) -> bytes:
         return cached.read_bytes()
 
     url = release["url"].format(version=release["version"], platform=target)
-    try:
-        with urllib.request.urlopen(url, timeout=120) as response:
-            data = response.read()
-    except OSError as exc:
-        raise RuntimeError(f"could not download D2 from {url}: {exc}") from exc
+    data = download(url)
     actual = hashlib.sha256(data).hexdigest()
     if actual != expected:
         raise RuntimeError(f"D2 archive {name} has SHA-256 {actual}, expected {expected}; refusing to package it")
@@ -88,6 +91,25 @@ def fetch_archive(release: dict, target: str) -> bytes:
     except OSError:
         pass  # the cache is only an optimisation
     return data
+
+
+def _retryable(exc: OSError) -> bool:
+    """Whether a failed download may succeed if tried again: not a 4xx answer, other than 429 (too many requests)."""
+    return not isinstance(exc, urllib.error.HTTPError) or exc.code >= 500 or exc.code == 429
+
+
+def download(url: str) -> bytes:
+    """The body at ``url``, retried after a transient failure (see ``RETRY_DELAYS``)."""
+    for delay in (*RETRY_DELAYS, None):
+        try:
+            with urllib.request.urlopen(url, timeout=120) as response:
+                return response.read()
+        except OSError as exc:
+            if delay is None or not _retryable(exc):
+                raise RuntimeError(f"could not download D2 from {url}: {exc}") from exc
+            print(f"downloading D2 from {url} failed ({exc}); retrying in {delay}s", file=sys.stderr)
+            time.sleep(delay)
+    raise AssertionError("unreachable")
 
 
 def _member(tar: tarfile.TarFile, suffix: str) -> tarfile.TarInfo:
